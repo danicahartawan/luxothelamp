@@ -25,4 +25,5 @@ lerobot = { git = "https://github.com/huggingface/lerobot" }
 hardware = [
     "adafruit-circuitpython-neopixel",
     "rpi-ws281x",
+    "gpiozero",
 ]

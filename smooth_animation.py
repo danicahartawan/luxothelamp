@@ -17,6 +17,8 @@ from livekit.plugins import (
 from typing import Union
 from lelamp.service.motors.animation_service import AnimationService
 from lelamp.service.rgb.rgb_service import RGBService
+from lelamp.service import UltrasonicService, Priority
+import time
 
 load_dotenv()
 
@@ -59,14 +61,33 @@ Demo rules:
             led_channel=0
         )
         
+        # Initialize ultrasonic sensor service
+        self.ultrasonic_service = UltrasonicService(
+            trigger_pin=23,
+            echo_pin=24,
+            detection_threshold=0.5,  # 50cm detection range
+            wave_speed_threshold=0.15,
+            sample_rate=10.0
+        )
+
+        # Set wave detection callback
+        self.ultrasonic_service.set_callback(self._on_wave_detected)
+
         # Start services
         self.animation_service.start()
         self.rgb_service.start()
+        self.ultrasonic_service.start()
 
         # Trigger wake up animation via animation service
         self.animation_service.dispatch("play", "wake_up")
         self.rgb_service.dispatch("solid", (255, 255, 255))
         self._set_system_volume(100)
+
+        # Define all available expressions (excluding wake_up and idle)
+        self.all_expressions = [
+            "nod", "excited", "curious", "happy_wiggle",
+            "headshake", "sad", "scanning", "shock", "shy"
+        ]
 
     def _set_system_volume(self, volume_percent: int):
         """Internal helper to set system volume"""
@@ -74,13 +95,40 @@ Demo rules:
             cmd_line = ["sudo", "-u", "pi", "amixer", "sset", "Line", f"{volume_percent}%"]
             cmd_line_dac = ["sudo", "-u", "pi", "amixer", "sset", "Line DAC", f"{volume_percent}%"]
             cmd_line_hp = ["sudo", "-u", "pi", "amixer", "sset", "HP", f"{volume_percent}%"]
-            
-            
+
+
             subprocess.run(cmd_line, capture_output=True, text=True, timeout=5)
             subprocess.run(cmd_line_dac, capture_output=True, text=True, timeout=5)
             subprocess.run(cmd_line_hp, capture_output=True, text=True, timeout=5)
         except Exception:
             pass  # Silently fail during initialization
+
+    def _on_wave_detected(self):
+        """Callback triggered when ultrasonic sensor detects a wave gesture"""
+        print("Wave detected! Playing all expressions...")
+
+        # Change to excited color (bright yellow/orange)
+        self.rgb_service.dispatch("solid", (255, 150, 0), Priority.HIGH)
+
+        # Play all expressions in sequence
+        for expression in self.all_expressions:
+            print(f"Playing expression: {expression}")
+            self.animation_service.dispatch("play", expression, Priority.HIGH)
+
+            # Wait for expression to complete (approximate timing)
+            # Most expressions are 5-7 seconds at 30fps
+            time.sleep(6)
+
+            # Change color between expressions
+            import random
+            r = random.randint(100, 255)
+            g = random.randint(100, 255)
+            b = random.randint(100, 255)
+            self.rgb_service.dispatch("solid", (r, g, b), Priority.NORMAL)
+
+        print("All expressions completed!")
+        # Return to white after all expressions
+        self.rgb_service.dispatch("solid", (255, 255, 255), Priority.NORMAL)
 
     @function_tool
     async def get_available_recordings(self) -> str:
