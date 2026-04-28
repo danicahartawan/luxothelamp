@@ -30,6 +30,9 @@ class UltrasonicService(ServiceBase):
         wave_speed_threshold: float = 0.15,  # m/s - minimum speed to count as wave
         callback: Optional[Callable] = None,
         sample_rate: float = 10.0,  # Hz - samples per second
+        mqtt_service: Optional[any] = None,  # MQTT service for publishing
+        publish_distance: bool = False,  # Publish distance readings to MQTT
+        publish_wave_events: bool = True,  # Publish wave events to MQTT
     ):
         super().__init__("ultrasonic")
 
@@ -40,10 +43,17 @@ class UltrasonicService(ServiceBase):
         self.sample_rate = sample_rate
         self.callback = callback
 
+        # MQTT integration
+        self.mqtt_service = mqtt_service
+        self.publish_distance = publish_distance
+        self.publish_wave_events = publish_wave_events
+
         # Wave detection state
         self.distance_history = deque(maxlen=10)  # Keep last 10 readings
         self.last_wave_time = 0
         self.wave_cooldown = 2.0  # seconds between wave detections
+        self.last_mqtt_publish_time = 0
+        self.mqtt_publish_interval = 1.0 / sample_rate if publish_distance else 1.0
 
         # Sensor initialization
         self.sensor: Optional[DistanceSensor] = None
@@ -95,18 +105,37 @@ class UltrasonicService(ServiceBase):
                 distance = self._read_distance()
 
                 if distance is not None:
-                    self.distance_history.append((time.time(), distance))
+                    current_time = time.time()
+                    self.distance_history.append((current_time, distance))
+
+                    # Publish distance to MQTT if enabled
+                    if self.publish_distance and self.mqtt_service:
+                        if current_time - self.last_mqtt_publish_time >= self.mqtt_publish_interval:
+                            self.mqtt_service.publish_distance_reading(distance)
+                            self.last_mqtt_publish_time = current_time
 
                     # Check for wave pattern
                     if self._detect_wave():
-                        current_time = time.time()
-
                         # Check cooldown
                         if current_time - self.last_wave_time > self.wave_cooldown:
                             self.last_wave_time = current_time
                             self.logger.info("Wave detected!")
 
-                            # Trigger callback
+                            # Calculate velocity for MQTT
+                            velocity = 0.0
+                            if len(self.distance_history) >= 2:
+                                times = [t for t, d in self.distance_history]
+                                distances = [d for t, d in self.distance_history]
+                                dt = times[-1] - times[0]
+                                dd = abs(distances[-1] - distances[0])
+                                if dt > 0:
+                                    velocity = dd / dt
+
+                            # Publish wave event to MQTT if enabled
+                            if self.publish_wave_events and self.mqtt_service:
+                                self.mqtt_service.publish_wave_event(distance, velocity)
+
+                            # Trigger local callback
                             if self.callback:
                                 try:
                                     self.callback()

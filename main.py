@@ -1,11 +1,12 @@
 from dotenv import load_dotenv
 import argparse
 import subprocess
+import os
 
 from livekit import agents, api, rtc
 from livekit.agents import (
-    AgentSession, 
-    Agent, 
+    AgentSession,
+    Agent,
     RoomInputOptions,
     function_tool
 )
@@ -14,10 +15,10 @@ from livekit.plugins import (
     openai,
     noise_cancellation,
 )
-from typing import Union
+from typing import Union, Optional
 from lelamp.service.motors.motors_service import MotorsService
 from lelamp.service.rgb.rgb_service import RGBService
-from lelamp.service import UltrasonicService, Priority
+from lelamp.service import UltrasonicService, MQTTService, Priority
 import time
 
 load_dotenv()
@@ -59,13 +60,41 @@ Demo rules:
             led_channel=0
         )
         
+        # Initialize MQTT service (optional)
+        self.mqtt_service: Optional[MQTTService] = None
+        mqtt_enabled = os.getenv("MQTT_ENABLED", "false").lower() == "true"
+
+        if mqtt_enabled:
+            self.mqtt_service = MQTTService(
+                broker_host=os.getenv("MQTT_BROKER_HOST", "localhost"),
+                broker_port=int(os.getenv("MQTT_BROKER_PORT", "1883")),
+                lamp_id=lamp_id,
+                username=os.getenv("MQTT_USERNAME"),
+                password=os.getenv("MQTT_PASSWORD"),
+                use_tls=os.getenv("MQTT_USE_TLS", "false").lower() == "true"
+            )
+
+            # Register MQTT command callbacks
+            self.mqtt_service.register_callback("play_expression", self._mqtt_play_expression)
+            self.mqtt_service.register_callback("play_all_expressions", self._on_wave_detected)
+            self.mqtt_service.register_callback("set_rgb", self._mqtt_set_rgb)
+
+            self.mqtt_service.start()
+            self.mqtt_service.wait_for_connection(timeout=5.0)
+
         # Initialize ultrasonic sensor service
+        publish_distance = os.getenv("MQTT_PUBLISH_DISTANCE", "false").lower() == "true"
+        publish_wave = os.getenv("MQTT_PUBLISH_WAVE_EVENTS", "true").lower() == "true"
+
         self.ultrasonic_service = UltrasonicService(
-            trigger_pin=23,
-            echo_pin=24,
-            detection_threshold=0.5,  # 50cm detection range
-            wave_speed_threshold=0.15,
-            sample_rate=10.0
+            trigger_pin=int(os.getenv("ULTRASONIC_TRIGGER_PIN", "23")),
+            echo_pin=int(os.getenv("ULTRASONIC_ECHO_PIN", "24")),
+            detection_threshold=float(os.getenv("ULTRASONIC_DETECTION_THRESHOLD", "0.5")),
+            wave_speed_threshold=float(os.getenv("ULTRASONIC_WAVE_SPEED_THRESHOLD", "0.15")),
+            sample_rate=float(os.getenv("ULTRASONIC_SAMPLE_RATE", "10.0")),
+            mqtt_service=self.mqtt_service,
+            publish_distance=publish_distance and mqtt_enabled,
+            publish_wave_events=publish_wave and mqtt_enabled
         )
 
         # Set wave detection callback
@@ -127,6 +156,20 @@ Demo rules:
         print("All expressions completed!")
         # Return to white after all expressions
         self.rgb_service.dispatch("solid", (255, 255, 255), Priority.NORMAL)
+
+    def _mqtt_play_expression(self, expression: str):
+        """MQTT callback to play specific expression"""
+        print(f"MQTT command: Play expression '{expression}'")
+        self.motors_service.dispatch("play", expression, Priority.HIGH)
+
+        # Publish status to MQTT
+        if self.mqtt_service:
+            self.mqtt_service.publish_expression_playing(expression)
+
+    def _mqtt_set_rgb(self, r: int, g: int, b: int):
+        """MQTT callback to set RGB color"""
+        print(f"MQTT command: Set RGB ({r}, {g}, {b})")
+        self.rgb_service.dispatch("solid", (r, g, b), Priority.NORMAL)
 
     @function_tool
     async def get_available_recordings(self) -> str:

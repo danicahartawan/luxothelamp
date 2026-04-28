@@ -26,4 +26,5 @@ hardware = [
     "adafruit-circuitpython-neopixel",
     "rpi-ws281x",
     "gpiozero",
+    "paho-mqtt>=1.6.1",
 ]
