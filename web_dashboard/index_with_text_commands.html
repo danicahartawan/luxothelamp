@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeLamp Control Dashboard - With Text Commands</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+
+        .button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .button-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #5568d3;
+        }
+
+        .button-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .input-group {
+            margin: 16px 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        .input-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .chat-box {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+
+        .chat-message {
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        .chat-message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+
+        .chat-message.system {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+
+        .suggestion-pills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 16px 0;
+        }
+
+        .pill {
+            padding: 6px 12px;
+            background: #f3f4f6;
+            border-radius: 16px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .pill:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .sensor-data {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 16px 0;
+        }
+
+        .log {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            margin-top: 16px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💡 LeLamp Dashboard</h1>
+            <p style="margin: 10px 0; opacity: 0.9;">Talk to your lamp naturally!</p>
+            <span id="status" class="status disconnected">Disconnected</span>
+        </div>
+
+        <div class="dashboard">
+            <!-- Text Command Card (Featured) -->
+            <div class="card" style="grid-column: 1 / -1;">
+                <h2>💬 Talk to LeLamp</h2>
+                <div class="chat-box" id="chatBox">
+                    <div class="chat-message system">
+                        Welcome! Try typing commands like "be happy", "turn red", or "play all"
+                    </div>
+                </div>
+                <div class="suggestion-pills">
+                    <span class="pill" onclick="quickCommand('be happy')">Be happy</span>
+                    <span class="pill" onclick="quickCommand('look excited')">Look excited</span>
+                    <span class="pill" onclick="quickCommand('turn blue')">Turn blue</span>
+                    <span class="pill" onclick="quickCommand('nod yes')">Nod yes</span>
+                    <span class="pill" onclick="quickCommand('play all')">Play all</span>
+                    <span class="pill" onclick="quickCommand('rainbow colors')">Rainbow colors</span>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="textCommand" placeholder="Type a command..." onkeypress="if(event.key==='Enter') sendTextCommand()">
+                </div>
+                <button class="button button-primary" onclick="sendTextCommand()">Send Command</button>
+            </div>
+
+            <!-- Connection Card -->
+            <div class="card">
+                <h2>🔌 Connection</h2>
+                <div class="input-group">
+                    <label>MQTT Broker</label>
+                    <input type="text" id="broker" value="localhost">
+                </div>
+                <div class="input-group">
+                    <label>Port</label>
+                    <input type="number" id="port" value="9001">
+                </div>
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="username" value="lelamp">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="password" value="lelamp123">
+                </div>
+                <button class="button button-success" onclick="connect()">Connect</button>
+            </div>
+
+            <!-- Sensor Data Card -->
+            <div class="card">
+                <h2>📡 Sensor Data</h2>
+                <div style="color: #6b7280; font-size: 0.9em;">Distance</div>
+                <div class="sensor-data" id="distance">--</div>
+                <div style="color: #6b7280; font-size: 0.85em;">Last: <span id="lastUpdate">Never</span></div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="card" style="grid-column: 1 / -1;">
+                <h2>📋 Activity Log</h2>
+                <div class="log" id="log">
+                    <div class="log-entry">Waiting for connection...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        let client = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+            while (logDiv.children.length > 50) {
+                logDiv.removeChild(logDiv.lastChild);
+            }
+        }
+
+        function addChatMessage(text, isUser = false) {
+            const chatBox = document.getElementById('chatBox');
+            const message = document.createElement('div');
+            message.className = `chat-message ${isUser ? 'user' : 'system'}`;
+            message.textContent = text;
+            chatBox.appendChild(message);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = connected ? 'Connected' : 'Disconnected';
+            statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        }
+
+        function connect() {
+            const broker = document.getElementById('broker').value;
+            const port = document.getElementById('port').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            log(`Connecting to ${broker}:${port}...`);
+
+            client = mqtt.connect(`ws://${broker}:${port}`, {
+                username, password, reconnectPeriod: 5000
+            });
+
+            client.on('connect', () => {
+                log('Connected!');
+                updateStatus(true);
+                addChatMessage('Connected! You can now talk to your lamp.');
+                client.subscribe('lelamp/#');
+            });
+
+            client.on('message', (topic, message) => {
+                const data = JSON.parse(message.toString());
+                if (topic.includes('/sensor/ultrasonic/distance')) {
+                    document.getElementById('distance').textContent = `${data.distance_cm.toFixed(1)} cm`;
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                } else if (topic.includes('/sensor/ultrasonic/wave')) {
+                    log('🌊 Wave detected!');
+                    addChatMessage('I saw you wave! 👋');
+                } else if (topic.includes('/expression/playing')) {
+                    addChatMessage(`Playing: ${data.expression}`);
+                }
+            });
+
+            client.on('error', (err) => {
+                log(`Error: ${err.message}`);
+                updateStatus(false);
+            });
+
+            client.on('close', () => {
+                log('Disconnected');
+                updateStatus(false);
+            });
+        }
+
+        function quickCommand(text) {
+            document.getElementById('textCommand').value = text;
+            sendTextCommand();
+        }
+
+        function sendTextCommand() {
+            if (!client || !client.connected) {
+                alert('Please connect first!');
+                return;
+            }
+
+            const text = document.getElementById('textCommand').value.toLowerCase().trim();
+            if (!text) return;
+
+            addChatMessage(text, true);
+            document.getElementById('textCommand').value = '';
+
+            // Expression mapping
+            const expressionMap = {
+                'happy': 'happy_wiggle',
+                'excited': 'excited',
+                'sad': 'sad',
+                'curious': 'curious',
+                'nod': 'nod',
+                'yes': 'nod',
+                'no': 'headshake',
+                'shake': 'headshake',
+                'shy': 'shy',
+                'shock': 'shock',
+                'surprised': 'shock',
+                'scan': 'scanning',
+                'look around': 'scanning',
+                'wake': 'wake_up'
+            };
+
+            // Color mapping
+            const colorMap = {
+                'red': {r: 255, g: 0, b: 0},
+                'green': {r: 0, g: 255, b: 0},
+                'blue': {r: 0, g: 0, b: 255},
+                'yellow': {r: 255, g: 255, b: 0},
+                'purple': {r: 255, g: 0, b: 255},
+                'cyan': {r: 0, g: 255, b: 255},
+                'orange': {r: 255, g: 150, b: 0},
+                'pink': {r: 255, g: 100, b: 180},
+                'white': {r: 255, g: 255, b: 255}
+            };
+
+            // Check for "play all" command
+            if (text.includes('play all') || text.includes('show all') || text.includes('do everything')) {
+                client.publish('lelamp/lelamp/command/play_all', '{}');
+                addChatMessage('Playing all expressions!');
+                log('Command: Play all expressions');
+                return;
+            }
+
+            // Check for expression keywords
+            for (let [keyword, expression] of Object.entries(expressionMap)) {
+                if (text.includes(keyword)) {
+                    client.publish('lelamp/lelamp/command/play',
+                        JSON.stringify({ expression }));
+                    addChatMessage(`Playing: ${expression}`);
+                    log(`Text → Expression: ${expression}`);
+                    return;
+                }
+            }
+
+            // Check for color keywords
+            for (let [keyword, rgb] of Object.entries(colorMap)) {
+                if (text.includes(keyword)) {
+                    client.publish('lelamp/lelamp/command/rgb', JSON.stringify(rgb));
+                    addChatMessage(`Changing to ${keyword} color`);
+                    log(`Text → Color: ${keyword}`);
+                    return;
+                }
+            }
+
+            // Special commands
+            if (text.includes('rainbow') || text.includes('colorful')) {
+                addChatMessage('Rainbow mode! Watch me cycle through colors.');
+                const colors = Object.values(colorMap);
+                let i = 0;
+                const interval = setInterval(() => {
+                    if (i >= colors.length) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    client.publish('lelamp/lelamp/command/rgb', JSON.stringify(colors[i]));
+                    i++;
+                }, 1000);
+                return;
+            }
+
+            // If nothing matched
+            addChatMessage(`Sorry, I don't understand "${text}". Try: "be happy", "turn red", or "play all"`);
+        }
+    </script>
+</body>
+</html>

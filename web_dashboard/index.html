@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeLamp Control Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+
+        .sensor-data {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 16px 0;
+        }
+
+        .sensor-label {
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+
+        .button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .button-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #5568d3;
+        }
+
+        .button-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .button-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .button-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .button-success:hover {
+            background: #059669;
+        }
+
+        .input-group {
+            margin: 16px 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 16px 0;
+        }
+
+        .color-swatch {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            border: 3px solid transparent;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border-color: #1f2937;
+        }
+
+        .log {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            margin-top: 16px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .wave-indicator {
+            width: 100%;
+            height: 100px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+
+        .wave-animation {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transform: translateX(-100%);
+            animation: wave 2s ease-in-out infinite;
+        }
+
+        @keyframes wave {
+            0%, 100% {
+                transform: translateX(-100%);
+            }
+            50% {
+                transform: translateX(100%);
+            }
+        }
+
+        .config-form {
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💡 LeLamp Dashboard</h1>
+            <span id="status" class="status disconnected">Disconnected</span>
+        </div>
+
+        <div class="dashboard">
+            <!-- Connection Card -->
+            <div class="card">
+                <h2>🔌 Connection</h2>
+                <div class="input-group">
+                    <label>MQTT Broker</label>
+                    <input type="text" id="broker" value="localhost" placeholder="localhost or IP">
+                </div>
+                <div class="input-group">
+                    <label>Port</label>
+                    <input type="number" id="port" value="9001" placeholder="9001">
+                </div>
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="username" value="lelamp" placeholder="lelamp">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="password" value="lelamp123" placeholder="password">
+                </div>
+                <button class="button button-success" onclick="connect()">Connect</button>
+                <button class="button button-secondary" onclick="disconnect()">Disconnect</button>
+            </div>
+
+            <!-- Sensor Data Card -->
+            <div class="card">
+                <h2>📡 Sensor Data</h2>
+                <div class="sensor-label">Distance</div>
+                <div class="sensor-data" id="distance">--</div>
+                <div class="sensor-label">Last Updated: <span id="lastUpdate">Never</span></div>
+                <div class="wave-indicator" id="waveIndicator" style="display:none;">
+                    <div class="wave-animation"></div>
+                </div>
+            </div>
+
+            <!-- Expression Control Card -->
+            <div class="card">
+                <h2>🎭 Expressions</h2>
+                <div class="input-group">
+                    <label>Select Expression</label>
+                    <select id="expression">
+                        <option value="nod">Nod</option>
+                        <option value="excited">Excited</option>
+                        <option value="curious">Curious</option>
+                        <option value="happy_wiggle">Happy Wiggle</option>
+                        <option value="headshake">Headshake</option>
+                        <option value="sad">Sad</option>
+                        <option value="scanning">Scanning</option>
+                        <option value="shock">Shock</option>
+                        <option value="shy">Shy</option>
+                        <option value="wake_up">Wake Up</option>
+                    </select>
+                </div>
+                <button class="button button-primary" onclick="playExpression()">Play Expression</button>
+                <button class="button button-primary" onclick="playAllExpressions()">Play All Expressions</button>
+            </div>
+
+            <!-- RGB Control Card -->
+            <div class="card">
+                <h2>🌈 RGB Control</h2>
+                <div class="color-picker">
+                    <div class="color-swatch" style="background: rgb(255, 0, 0)" onclick="setColor(255, 0, 0)"></div>
+                    <div class="color-swatch" style="background: rgb(255, 150, 0)" onclick="setColor(255, 150, 0)"></div>
+                    <div class="color-swatch" style="background: rgb(255, 255, 0)" onclick="setColor(255, 255, 0)"></div>
+                    <div class="color-swatch" style="background: rgb(0, 255, 0)" onclick="setColor(0, 255, 0)"></div>
+                    <div class="color-swatch" style="background: rgb(0, 255, 255)" onclick="setColor(0, 255, 255)"></div>
+                    <div class="color-swatch" style="background: rgb(0, 0, 255)" onclick="setColor(0, 0, 255)"></div>
+                    <div class="color-swatch" style="background: rgb(255, 0, 255)" onclick="setColor(255, 0, 255)"></div>
+                    <div class="color-swatch" style="background: rgb(255, 255, 255)" onclick="setColor(255, 255, 255)"></div>
+                </div>
+                <div class="input-group">
+                    <label>Custom RGB</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="red" placeholder="R" min="0" max="255" value="255">
+                        <input type="number" id="green" placeholder="G" min="0" max="255" value="255">
+                        <input type="number" id="blue" placeholder="B" min="0" max="255" value="255">
+                    </div>
+                </div>
+                <button class="button button-primary" onclick="setCustomColor()">Set Custom Color</button>
+            </div>
+
+            <!-- Activity Log Card -->
+            <div class="card" style="grid-column: 1 / -1;">
+                <h2>📋 Activity Log</h2>
+                <div class="log" id="log">
+                    <div class="log-entry">Waiting for connection...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT.js Library -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        let client = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+
+            // Keep only last 50 entries
+            while (logDiv.children.length > 50) {
+                logDiv.removeChild(logDiv.lastChild);
+            }
+        }
+
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'status disconnected';
+            }
+        }
+
+        function connect() {
+            const broker = document.getElementById('broker').value;
+            const port = document.getElementById('port').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            log(`Connecting to ${broker}:${port}...`);
+
+            const options = {
+                username: username,
+                password: password,
+                reconnectPeriod: 5000
+            };
+
+            client = mqtt.connect(`ws://${broker}:${port}`, options);
+
+            client.on('connect', () => {
+                log('Connected to MQTT broker!');
+                updateStatus(true);
+
+                // Subscribe to all lelamp topics
+                client.subscribe('lelamp/#', (err) => {
+                    if (!err) {
+                        log('Subscribed to lelamp/#');
+                    }
+                });
+            });
+
+            client.on('message', (topic, message) => {
+                const data = JSON.parse(message.toString());
+
+                if (topic.includes('/sensor/ultrasonic/distance')) {
+                    document.getElementById('distance').textContent =
+                        `${data.distance_cm.toFixed(1)} cm`;
+                    document.getElementById('lastUpdate').textContent =
+                        new Date().toLocaleTimeString();
+                }
+                else if (topic.includes('/sensor/ultrasonic/wave')) {
+                    log('🌊 Wave detected!');
+                    const waveIndicator = document.getElementById('waveIndicator');
+                    waveIndicator.style.display = 'block';
+                    setTimeout(() => {
+                        waveIndicator.style.display = 'none';
+                    }, 2000);
+                }
+                else if (topic.includes('/expression/playing')) {
+                    log(`🎭 Playing expression: ${data.expression}`);
+                }
+                else if (topic.includes('/expression/completed')) {
+                    log(`✅ Completed expression: ${data.expression}`);
+                }
+                else if (topic.includes('/status/online')) {
+                    log(`LeLamp is ${data.online ? 'online' : 'offline'}`);
+                }
+            });
+
+            client.on('error', (err) => {
+                log(`Error: ${err.message}`);
+                updateStatus(false);
+            });
+
+            client.on('close', () => {
+                log('Disconnected from broker');
+                updateStatus(false);
+            });
+        }
+
+        function disconnect() {
+            if (client) {
+                client.end();
+                log('Disconnecting...');
+            }
+        }
+
+        function playExpression() {
+            if (!client || !client.connected) {
+                alert('Please connect to MQTT first!');
+                return;
+            }
+
+            const expression = document.getElementById('expression').value;
+            const message = JSON.stringify({ expression: expression });
+
+            client.publish('lelamp/lelamp/command/play', message);
+            log(`Sending command: Play ${expression}`);
+        }
+
+        function playAllExpressions() {
+            if (!client || !client.connected) {
+                alert('Please connect to MQTT first!');
+                return;
+            }
+
+            client.publish('lelamp/lelamp/command/play_all', '{}');
+            log('Sending command: Play all expressions');
+        }
+
+        function setColor(r, g, b) {
+            if (!client || !client.connected) {
+                alert('Please connect to MQTT first!');
+                return;
+            }
+
+            const message = JSON.stringify({ r: r, g: g, b: b });
+            client.publish('lelamp/lelamp/command/rgb', message);
+            log(`Setting RGB to (${r}, ${g}, ${b})`);
+        }
+
+        function setCustomColor() {
+            const r = parseInt(document.getElementById('red').value) || 255;
+            const g = parseInt(document.getElementById('green').value) || 255;
+            const b = parseInt(document.getElementById('blue').value) || 255;
+
+            setColor(r, g, b);
+        }
+
+        // Auto-connect on page load (optional)
+        // window.onload = () => connect();
+    </script>
+</body>
+</html>
